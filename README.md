@@ -1,21 +1,34 @@
 # Wallpaper Selector for QuickShell
 
-A beautiful wallpaper selector popup for your Hyprland QuickShell bar!
+A beautiful wallpaper selector popup for your Hyprland QuickShell bar.
 
-## 📦 Files Included
+A small QuickShell module that shows a scrollable grid of wallpapers and lets you apply them using swww or hyprpaper with smooth transitions.
 
-1. **WallpaperButton.qml** - Button component that appears next to the clock
-2. **WallpaperSelector.qml** - Popup window with wallpaper grid
-3. **Bar.qml** - Updated bar with the wallpaper button integrated
+## Table of contents
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Customization](#customization)
+- [Troubleshooting](#troubleshooting)
+- [Development & Contributing](#development--contributing)
+- [License](#license)
+- [Authors](#authors)
 
-## 🚀 Installation
+## Requirements
+- QuickShell configured with modules support
+- Hyprland (compositor)
+- Either:
+  - swww (recommended) OR
+  - hyprpaper
+- A recent Qt/QML runtime used by QuickShell (use the runtime QuickShell provides)
 
-### Step 1: Place the files
+## Installation
 
-Copy the new files to your QuickShell modules directory:
+1. Place files in your QuickShell modules directory (example layout):
 
 ```bash
-# Assuming your structure is similar to:
+# Example structure:
 # ~/.config/quickshell/
 #   ├── shell.qml
 #   └── modules/
@@ -26,142 +39,109 @@ Copy the new files to your QuickShell modules directory:
 #           ├── Workspace.qml
 #           ├── WallpaperButton.qml      ← NEW
 #           └── WallpaperSelector.qml    ← NEW
+```
 
-# Copy the new files
-cp WallpaperButton.qml ~/.config/quickshell/modules/bar/
-cp WallpaperSelector.qml ~/.config/quickshell/modules/bar/
+2. Copy files (keep a backup of your Bar.qml):
 
-# Replace your old Bar.qml (backup first!)
+```bash
+mkdir -p ~/.config/quickshell/modules/bar
+cp WallpaperButton.qml WallpaperSelector.qml ~/.config/quickshell/modules/bar/
 cp ~/.config/quickshell/modules/bar/Bar.qml ~/.config/quickshell/modules/bar/Bar.qml.backup
 cp Bar.qml ~/.config/quickshell/modules/bar/
 ```
 
-### Step 2: Configure wallpaper directory
+Tip: Use an atomic replace if you automate installs (move to a temp file then rename).
 
-Edit `WallpaperSelector.qml` and update line 16 with your wallpaper directory:
+## Configuration
+
+Open `WallpaperSelector.qml` and set your wallpaper directory (line ~16):
 
 ```qml
+// Recommended: use QDir.homePath() inside QML where available
 property string wallpaperDir: "/home/YOUR_USERNAME/Pictures/wallpapers"
-```
-
-Or use the default which auto-detects your username:
-```qml
+// or
 property string wallpaperDir: "/home/" + Process.env["USER"] + "/Pictures/wallpapers"
 ```
 
-### Step 3: Configure wallpaper backend
+Backend selection:
+- Default uses swww.
+- To use hyprpaper, edit the commands near the backend section (~line 44-50):
+  - Comment out the `swww` command
+  - Uncomment or add the `hyprctl hyprpaper wallpaper ,<path>` command
 
-The selector supports both **swww** and **hyprpaper**. 
-
-#### For swww (default, recommended):
-The default configuration uses swww. Make sure you have it installed and running:
-
-```bash
-# Install swww
-yay -S swww  # or your package manager
-
-# Initialize swww daemon
-swww init
-```
-
-#### For hyprpaper:
-If you prefer hyprpaper, edit `WallpaperSelector.qml` around line 44-50:
-
-**Comment out swww line:**
+Example:
 ```qml
-// setWallpaperProc.command = ["swww", "img", path, "--transition-type", "fade", "--transition-fps", "60"]
-```
+// swww (example)
+setWallpaperProc.command = ["swww", "img", path, "--transition-type", "fade", "--transition-fps", "60"]
 
-**Uncomment hyprpaper line:**
-```qml
+// hyprpaper (example)
 hyprpaperProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path]
 ```
 
-### Step 4: Restart QuickShell
+## Usage
 
-```bash
-# Kill and restart quickshell
-killall quickshell && quickshell
-```
+1. Click the 🖼️ Wallpaper button next to the clock.
+2. The popup displays thumbnails of files in `wallpaperDir`.
+3. Click a thumbnail to apply it.
+4. Click the X or outside to close.
 
-## 🎨 Usage
+Supported formats: JPG/JPEG, PNG, WEBP.
 
-1. Click the **🖼️ Wallpaper** button next to the clock
-2. A popup window will appear showing all wallpapers in your directory
-3. Click any wallpaper to apply it
-4. Click the X or outside the window to close
+## Customization
 
-## ⚙️ Customization
+- Popup size: edit `width` / `height` in `WallpaperSelector.qml`.
+- Thumbnail size: change the Rectangle `width`/`height` used for thumbnails (around line ~123).
+- Colors: theme uses Tokyo Night palette — update hex values in the file.
+- Recursive scanning: currently only scans immediate directory — consider enabling recursion if you store nested folders.
 
-### Change wallpaper directory
-Edit line 16 in `WallpaperSelector.qml`:
+Recommended code change for a more robust home path:
 ```qml
-property string wallpaperDir: "/your/custom/path"
+// if available in your QML environment
+property string wallpaperDir: Qt.resolvedUrl("") === "" ? QDir.homePath() + "/Pictures/wallpapers" : "/home/" + Process.env["USER"] + "/Pictures/wallpapers"
 ```
 
-### Supported formats
-- JPG/JPEG
-- PNG
-- WEBP
+## Troubleshooting
 
-### Adjust popup size
-Edit in `WallpaperSelector.qml`:
-```qml
-width: 900   // Change width
-height: 600  // Change height
-```
+No wallpapers shown?
+- Verify `wallpaperDir` exists and contains supported images.
+- Run quickshell from a terminal to view QML errors:
+  journalctl -f -u quickshell
+  or
+  quickshell
 
-### Adjust thumbnail size
-Edit in `WallpaperSelector.qml` around line 123:
-```qml
-Rectangle {
-    width: 250   // Thumbnail width
-    height: 180  // Thumbnail height
-    // ...
-}
-```
+Wallpaper not changing?
+- If using swww: ensure the swww daemon is running (`pgrep swww`).
+- Test manually:
+  swww img /path/to/wallpaper.jpg
+- If using hyprpaper: test the hyprctl command:
+  hyprctl hyprpaper wallpaper ,/path/to/wallpaper.jpg
 
-### Change colors
-The selector uses Tokyo Night theme colors. To customize:
-- Background: `#1a1b26`
-- Borders: `#414868`
-- Accent: `#7aa2f7`
-- Text: `#c0caf5`
+Button not appearing?
+- Confirm files are located in `~/.config/quickshell/modules/bar/`.
+- Look for QML syntax errors in terminal output.
 
-## 🔧 Troubleshooting
+Performance / large collections:
+- Thumbnails are loaded asynchronously; there may be a delay on first open.
+- If you have thousands of images, consider pre-generating thumbnails or enabling lazy loading / pagination.
 
-### No wallpapers showing?
-1. Check if your wallpaper directory exists
-2. Verify the path in `WallpaperSelector.qml`
-3. Check console output: `journalctl -f -u quickshell` or run quickshell from terminal
+Edge cases:
+- Filenames with spaces or special characters should be handled by the command array (QML should pass them correctly). If issues appear, print the constructed command for debugging.
 
-### Wallpaper not changing?
-1. Make sure swww daemon is running: `pgrep swww`
-2. Test manually: `swww img /path/to/wallpaper.jpg`
-3. Check if you're using the correct backend (swww vs hyprpaper)
+## Development & Contributing
 
-### Button not appearing?
-1. Make sure all files are in the correct directory
-2. Check for QML syntax errors in the console
-3. Restart QuickShell completely
+- Run quickshell from a terminal to iterate and see QML errors:
+  quickshell
+- If you add features, write tests if your workflow supports them or provide reproducible run instructions.
+- Suggested enhancements:
+  - Recursive directory scanning
+  - Thumbnail cache to speed up subsequent opens
+  - Keyboard navigation (arrow keys + Enter)
+  - Option to set per-monitor wallpapers
 
-## 🎯 Features
+Pull requests and issues welcome.
 
-- ✅ Beautiful grid layout with image previews
-- ✅ Smooth fade transitions
-- ✅ Hover effects
-- ✅ Tokyo Night theme integration
-- ✅ Auto-detects wallpapers (jpg, png, webp)
-- ✅ Scrollable for large collections
-- ✅ Click outside to close
-- ✅ Works with swww and hyprpaper
+## License
+MIT License
 
-## 📝 Notes
-
-- The selector only scans the immediate directory (not subdirectories)
-- Images are loaded asynchronously for smooth performance
-- The first time you open it, there might be a brief delay while loading thumbnails
-- Only supported for Arch Linux, customize it yourself if using Nixos or any other distros
-
-Made with by @BotrosDe , @MumbleGameZ and @SatellaCatGirl
-
+## Authors
+Made by [BotrosDev](https://github.com/BotrosDev), [MumbleGameZ](https://github.com/MumbleGamez) and @SatellaCatGirl
