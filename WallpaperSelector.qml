@@ -7,11 +7,6 @@ PanelWindow {
     id: wallpaperSelector
     visible: false
     
-    anchors {
-        horizontalCenter: true
-        verticalCenter: true
-    }
-    
     width: 900
     height: 600
     color: "transparent"
@@ -76,7 +71,6 @@ PanelWindow {
                     font.bold: true
                 }
                 
-                Item { Layout.fillWidth: true }
                 
                 // Close button
                 Rectangle {
@@ -127,9 +121,7 @@ PanelWindow {
                     contentHeight: gridFlow.height
                     boundsBehavior: Flickable.StopAtBounds
                     
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AsNeeded
-                    }
+
                     
                     Flow {
                         id: gridFlow
