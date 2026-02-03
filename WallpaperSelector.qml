@@ -2,21 +2,22 @@ import Quickshell
 import QtQuick
 import Quickshell.Io
 import Quickshell.Hyprland
+import QtQuick.Controls
 
 PanelWindow {
     id: wallpaperSelector
     visible: false
     
-    width: 900
-    height: 600
+    implicitWidth: 860
+    implicitHeight: 600
     color: "transparent"
     
-    // Set your wallpaper directory here
-    property string wallpaperDir: "/home/" + Process.env["USER"] + "/Pictures/wallpapers"
+    property string wallpaperDir: "../../../../home/Your User Name/Pictures/Wallpapers"
+
     property var wallpaperList: []
     
-    // Close when clicking outside
-    mask: Region {}
+    // FIXED: Proper mask region that covers the entire window to make it interactive
+    mask: Region { item: mainContainer }
     
     function toggle() {
         if (visible) {
@@ -32,13 +33,7 @@ PanelWindow {
     }
     
     function setWallpaper(path) {
-        // Using hyprctl to set wallpaper with hyprpaper or swww
-        // Uncomment the one you're using:
-        
-        // For hyprpaper:
-        // hyprpaperProc.command = ["hyprctl", "hyprpaper", "wallpaper", "," + path]
-        
-        // For swww (more common):
+
         setWallpaperProc.command = ["swww", "img", path, "--transition-type", "fade", "--transition-fps", "60"]
         
         setWallpaperProc.running = true
@@ -121,7 +116,10 @@ PanelWindow {
                     contentHeight: gridFlow.height
                     boundsBehavior: Flickable.StopAtBounds
                     
-
+                    // Enable scrolling with mouse wheel
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                    }
                     
                     Flow {
                         id: gridFlow
@@ -162,6 +160,22 @@ PanelWindow {
                                             fillMode: Image.PreserveAspectCrop
                                             asynchronous: true
                                             smooth: true
+                                            
+                                            // Show loading indicator
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "Loading..."
+                                                color: '#565f89'
+                                                visible: parent.status === Image.Loading
+                                            }
+                                            
+                                            // Show error if image fails to load
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "Failed to load"
+                                                color: '#f7768e'
+                                                visible: parent.status === Image.Error
+                                            }
                                             
                                             Rectangle {
                                                 anchors.fill: parent
@@ -214,12 +228,10 @@ PanelWindow {
         }
     }
     
-    // Process to list wallpapers
+    // Process to list wallpapers - FIXED: Proper find command syntax
     Process {
         id: wallpaperProc
-        command: ["find", wallpaperDir, "-maxdepth", "1", "-type", "f", 
-                  "(", "-iname", "*.jpg", "-o", "-iname", "*.jpeg", 
-                  "-o", "-iname", "*.png", "-o", "-iname", "*.webp", ")"]
+        command: ["sh", "-c", "find '" + wallpaperDir + "' -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\)"]
         running: false
         
         stdout: StdioCollector {
@@ -228,6 +240,7 @@ PanelWindow {
                     return path.length > 0
                 })
                 wallpaperSelector.wallpaperList = paths.sort()
+                console.log("Found", paths.length, "wallpapers")
             }
         }
         
