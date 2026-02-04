@@ -1,8 +1,10 @@
 import Quickshell
 import QtQuick
+import QtQuick.Controls
+import Qt.labs.folderlistmodel
+import QtCore
 import Quickshell.Io
 import Quickshell.Hyprland
-import QtQuick.Controls
 
 PanelWindow {
     id: wallpaperSelector
@@ -12,24 +14,12 @@ PanelWindow {
     implicitHeight: 600
     color: "transparent"
     
-    property string wallpaperDir: "../../../../home/Your User Name/Pictures/Wallpapers"
-
-    property var wallpaperList: []
+    property string wallpaperDir: StandardPaths.writableLocation(StandardPaths.PicturesLocation) + "/Wallpapers"
     
-    // FIXED: Proper mask region that covers the entire window to make it interactive
     mask: Region { item: mainContainer }
     
     function toggle() {
-        if (visible) {
-            visible = false
-        } else {
-            loadWallpapers()
-            visible = true
-        }
-    }
-    
-    function loadWallpapers() {
-        wallpaperProc.running = true
+        visible = !visible
     }
     
     function setWallpaper(path) {
@@ -38,6 +28,27 @@ PanelWindow {
         
         setWallpaperProc.running = true
         wallpaperSelector.visible = false
+    }
+    
+    // FolderListModel 
+    FolderListModel {
+        id: folderModel
+        folder: wallpaperDir  
+        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.JPG", "*.JPEG", "*.PNG", "*.WEBP"]
+        showDirs: false
+        sortField: FolderListModel.Name
+        
+        onCountChanged: {
+            console.log("FolderListModel count changed:", count)
+            console.log("Looking in folder:", folder)
+        }
+        
+        Component.onCompleted: {
+            console.log("FolderListModel initialized")
+            console.log("Folder path:", folder)
+            console.log("Wallpaper dir:", wallpaperDir)
+            console.log("StandardPaths Pictures location:", StandardPaths.writableLocation(StandardPaths.PicturesLocation))
+        }
     }
     
     Rectangle {
@@ -108,107 +119,107 @@ PanelWindow {
                 radius: 8
                 clip: true
                 
-                Flickable {
-                    id: flickable
+                GridView {
+                    id: gridView
                     anchors.fill: parent
                     anchors.margins: 10
-                    contentWidth: gridFlow.width
-                    contentHeight: gridFlow.height
-                    boundsBehavior: Flickable.StopAtBounds
                     
-                    // Enable scrolling with mouse wheel
+                    cellWidth: 265  // 250 + 15 spacing
+                    cellHeight: 195  // 180 + 15 spacing
+                    
+                    model: folderModel
+                    clip: true
+                    
+                    // This is key - only keep a small cache of items outside visible area
+                    cacheBuffer: 400  // Only keep ~2 rows outside visible area
+                    
                     ScrollBar.vertical: ScrollBar {
                         policy: ScrollBar.AsNeeded
                     }
                     
-                    Flow {
-                        id: gridFlow
-                        width: flickable.width - 20
-                        spacing: 15
+                    delegate: Rectangle {
+                        id: rect
+                        required property string filePath
+                        required property string fileName
                         
-                        Repeater {
-                            model: wallpaperSelector.wallpaperList
+                        width: 250
+                        height: 180
+                        color: "#24283b"
+                        radius: 8
+                        border.color: itemMouseArea.containsMouse ? "#7aa2f7" : "#414868"
+                        border.width: 2
+                        
+                        Behavior on border.color {
+                            ColorAnimation { duration: 150 }
+                        }
+                        
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 5
                             
+                            // Image preview
                             Rectangle {
-                                width: 250
-                                height: 180
-                                color: "#24283b"
-                                radius: 8
-                                border.color: itemMouseArea.containsMouse ? "#7aa2f7" : "#414868"
-                                border.width: 2
+                                width: parent.width
+                                height: parent.height - 30
+                                color: "#1a1b26"
+                                radius: 4
+                                clip: true
                                 
-                                Behavior on border.color {
-                                    ColorAnimation { duration: 150 }
-                                }
-                                
-                                Column {
+                                Image {
                                     anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 5
+                                    source: "file://" + rect.filePath
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                    smooth: true
+                                    cache: false  // Don't cache to avoid memory issues with many images
                                     
-                                    // Image preview
-                                    Rectangle {
-                                        width: parent.width
-                                        height: parent.height - 30
-                                        color: "#1a1b26"
-                                        radius: 4
-                                        clip: true
-                                        
-                                        Image {
-                                            anchors.fill: parent
-                                            source: "file://" + modelData
-                                            fillMode: Image.PreserveAspectCrop
-                                            asynchronous: true
-                                            smooth: true
-                                            
-                                            // Show loading indicator
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "Loading..."
-                                                color: '#565f89'
-                                                visible: parent.status === Image.Loading
-                                            }
-                                            
-                                            // Show error if image fails to load
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "Failed to load"
-                                                color: '#f7768e'
-                                                visible: parent.status === Image.Error
-                                            }
-                                            
-                                            Rectangle {
-                                                anchors.fill: parent
-                                                color: "transparent"
-                                                border.color: "#414868"
-                                                border.width: 1
-                                                radius: 4
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Filename
+                                    // Show loading indicator
                                     Text {
-                                        width: parent.width
-                                        text: modelData.split('/').pop()
-                                        color: '#c0caf5'
-                                        font.pixelSize: 11
-                                        font.family: "monospace"
-                                        elide: Text.ElideMiddle
-                                        horizontalAlignment: Text.AlignHCenter
+                                        anchors.centerIn: parent
+                                        text: "Loading..."
+                                        color: '#565f89'
+                                        visible: parent.status === Image.Loading
                                     }
-                                }
-                                
-                                MouseArea {
-                                    id: itemMouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
                                     
-                                    onClicked: {
-                                        wallpaperSelector.setWallpaper(modelData)
+                                    // Show error if image fails to load
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Failed to load"
+                                        color: '#f7768e'
+                                        visible: parent.status === Image.Error
+                                    }
+                                    
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        color: "transparent"
+                                        border.color: "#414868"
+                                        border.width: 1
+                                        radius: 4
                                     }
                                 }
+                            }
+                            
+                            // Filename
+                            Text {
+                                width: parent.width
+                                text: rect.fileName
+                                color: '#c0caf5'
+                                font.pixelSize: 11
+                                font.family: "monospace"
+                                elide: Text.ElideMiddle
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+                        
+                        MouseArea {
+                            id: itemMouseArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            
+                            onClicked: {
+                                wallpaperSelector.setWallpaper(rect.filePath)
                             }
                         }
                     }
@@ -216,38 +227,15 @@ PanelWindow {
                 
                 // Empty state
                 Text {
-                    visible: wallpaperSelector.wallpaperList.length === 0
+                    visible: folderModel.count === 0
                     anchors.centerIn: parent
-                    text: "No wallpapers found in:\n" + wallpaperDir + "\n\nUpdate the wallpaperDir property"
+                    text: "No wallpapers found in:\n" + folderModel.folder + "\n\n" +
+                          "Looking for: *.jpg, *.jpeg, *.png, *.webp\n\n" +
+                          "Make sure the folder exists and contains image files"
                     color: '#565f89'
                     font.pixelSize: 14
                     font.family: "monospace"
                     horizontalAlignment: Text.AlignHCenter
-                }
-            }
-        }
-    }
-    
-    // Process to list wallpapers - FIXED: Proper find command syntax
-    Process {
-        id: wallpaperProc
-        command: ["sh", "-c", "find '" + wallpaperDir + "' -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\)"]
-        running: false
-        
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var paths = this.text.trim().split('\n').filter(function(path) {
-                    return path.length > 0
-                })
-                wallpaperSelector.wallpaperList = paths.sort()
-                console.log("Found", paths.length, "wallpapers")
-            }
-        }
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (this.text.trim().length > 0) {
-                    console.log("Error loading wallpapers:", this.text)
                 }
             }
         }
